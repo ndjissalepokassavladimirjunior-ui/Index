@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Bloc Rush – Puzzle de blocs gratuit</title>
+<meta name="description" content="Bloc Rush : posez les blocs, complétez les lignes et battez votre record. Un puzzle gratuit, sans inscription.">
+<meta name="theme-color" content="#1b1430">
+
+<!-- ============================================================
+  GOOGLE ADSENSE : collez ici le code fourni par AdSense
+  (balise <script async src="https://pagead2.googlesyndication.com/...">)
+  Il doit être dans le <head> pour la validation du site.
+  Puis renseignez ADSENSE_CLIENT et les SLOT plus bas dans le script.
+============================================================= -->
+
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1b1430; --board:#2b2150; --cell:rgba(255,255,255,.06);
+  --text:#f6f1ff; --muted:#a99cd0; --accent:#ffd23f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Baloo 2','Trebuchet MS',system-ui,sans-serif;overflow:hidden;
+  user-select:none;-webkit-user-select:none;touch-action:none}
+#app{height:100dvh;display:flex;flex-direction:column;align-items:center;
+  padding:max(8px,env(safe-area-inset-top)) 12px max(8px,env(safe-area-inset-bottom));gap:8px}
+header{width:100%;max-width:520px;display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.5px;color:var(--accent)}
+.scores{display:flex;gap:18px;text-align:right}
+.scores div{line-height:1}
+.scores small{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.scores b{font-size:24px;font-weight:800}
+.ad{width:100%;max-width:728px;height:50px;flex:none;display:flex;align-items:center;justify-content:center;
+  border:1px dashed rgba(255,255,255,.18);border-radius:8px;color:var(--muted);font-size:12px;overflow:hidden}
+.ad:has(ins){border:0}
+#boardWrap{background:var(--board);border-radius:18px;padding:8px;position:relative;flex:none;
+  box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#grid{display:grid;grid-template-columns:repeat(8,var(--cs));position:relative}
+.c{width:var(--cs);height:var(--cs);padding:1.5px}
+.c::before{content:'';display:block;width:100%;height:100%;border-radius:22%;background:var(--bg,var(--cell))}
+.c.f::before{box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 2px 0 rgba(255,255,255,.35)}
+.c.hint::before{opacity:.45}
+.c.pop::before{animation:pop .26s ease-in forwards}
+@keyframes pop{to{transform:scale(0);opacity:0}}
+.sp{width:var(--cs);height:var(--cs)}
+.shape{display:grid}
+#tray{display:flex;justify-content:space-around;align-items:center;width:100%;max-width:520px;flex:none}
+.slot{flex:1;display:flex;align-items:center;justify-content:center;height:100%;cursor:grab;touch-action:none}
+.slot.used{opacity:.25}
+.ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;filter:drop-shadow(0 8px 8px rgba(0,0,0,.4))}
+.float{position:absolute;left:50%;top:40%;transform:translate(-50%,0);font-weight:800;font-size:28px;color:var(--accent);
+  text-shadow:0 2px 0 rgba(0,0,0,.3);pointer-events:none;animation:up 1s ease-out forwards;white-space:nowrap}
+@keyframes up{to{transform:translate(-50%,-60px);opacity:0}}
+#over{position:fixed;inset:0;background:rgba(20,12,40,.82);display:none;align-items:center;justify-content:center;z-index:100}
+#over.show{display:flex}
+.card{background:var(--board);border-radius:22px;padding:28px 32px;text-align:center;min-width:260px}
+.card h2{margin:0 0 6px;font-size:32px}
+.card p{margin:4px 0;color:var(--muted);font-size:18px}
+.card .big{font-size:48px;font-weight:800;color:var(--accent);margin:4px 0 14px}
+button{font:inherit;font-weight:800;font-size:20px;border:0;border-radius:14px;padding:10px 28px;
+  background:var(--accent);color:#2a1d00;cursor:pointer;box-shadow:0 4px 0 #b8901a}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #b8901a}
+:focus-visible{outline:3px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.c.pop::before,.float{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Bloc Rush</h1>
+    <div class="scores">
+      <div><small>Score</small><b id="score">0</b></div>
+      <div><small>Record</small><b id="best">0</b></div>
+    </div>
+  </header>
+
+  <div class="ad" data-slot="top">Espace publicitaire</div>
+
+  <div id="boardWrap"><div id="grid"></div></div>
+
+  <div id="tray"></div>
+
+  <div class="ad" data-slot="bottom">Espace publicitaire</div>
+</div>
+
+<div id="over" role="dialog" aria-modal="true" aria-labelledby="overTitle">
+  <div class="card">
+    <h2 id="overTitle">Partie terminée</h2>
+    <p>Votre score</p>
+    <div class="big" id="finalScore">0</div>
+    <p id="newBest" style="display:none;color:#3ddc97">Nouveau record !</p>
+    <button id="again">Rejouer</button>
+  </div>
+</div>
+
+<script>
+/* ============ CONFIG ADSENSE ============
+   1) Remplacez par votre identifiant éditeur, ex : 'ca-pub-1234567890123456'
+   2) Créez 2 blocs d'annonces (display) dans AdSense et collez leur ID ci-dessous
+   Tant que ces valeurs sont vides, un espace réservé s'affiche. */
+const ADSENSE_CLIENT = '';
+const SLOT_TOP = '';
+const SLOT_BOTTOM = '';
+
+/* ============ JEU ============ */
+const N = 8;
+const COLORS = ['#ff6b6b','#3ddc97','#ffd23f','#4cc9f0','#9b5de5','#ff9f1c'];
+const SHAPES = [
+  [[1]],
+  [[1,1]],[[1],[1]],
+  [[1,1,1]],[[1],[1],[1]],
+  [[1,1,1,1]],[[1],[1],[1],[1]],
+  [[1,1,1,1,1]],[[1],[1],[1],[1],[1]],
+  [[1,1],[1,1]],
+  [[1,1,1],[1,1,1],[1,1,1]],
+  [[1,1],[1,0]],[[1,1],[0,1]],[[1,0],[1,1]],[[0,1],[1,1]],
+  [[1,0,0],[1,0,0],[1,1,1]],[[0,0,1],[0,0,1],[1,1,1]],
+  [[1,1,1],[1,0,0],[1,0,0]],[[1,1,1],[0,0,1],[0,0,1]],
+  [[1,1,1],[0,1,0]],[[0,1,0],[1,1,1]],[[1,0],[1,1],[1,0]],[[0,1],[1,1],[0,1]],
+  [[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]],[[0,1],[1,1],[1,0]],[[1,0],[1,1],[0,1]],
+  [[1,1],[1,1],[1,1]],[[1,1,1],[1,1,1]]
+];
+
+const $ = s => document.querySelector(s);
+const gridEl = $('#grid'), trayEl = $('#tray'), wrapEl = $('#boardWrap');
+let grid, pieces, score, best = 0, streak, busy, cs, tcs, cells, drag = null, hinted = [];
+try { best = +localStorage.getItem('blocrush_best') || 0; } catch (e) {}
+
+function newGame(){
+  grid = Array.from({length:N}, () => Array(N).fill(null));
+  score = 0; streak = 0; busy = false;
+  $('#over').classList.remove('show');
+  deal(); layout(); renderBoard(); renderTray(); updateScore();
+}
+
+function rnd(n){ return Math.floor(Math.random()*n); }
+function fits(shape, r, c){
+  for (let i=0;i<shape.length;i++) for (let j=0;j<shape[0].length;j++){
+    if (!shape[i][j]) continue;
+    const rr=r+i, cc=c+j;
+    if (rr<0||cc<0||rr>=N||cc>=N||grid[rr][cc]!==null) return false;
+  }
+  return true;
+}
+function canFitAnywhere(shape){
+  for (let r=0;r<N;r++) for (let c=0;c<N;c++) if (fits(shape,r,c)) return true;
+  return false;
+}
+function deal(){
+  for (let t=0;t<50;t++){
+    pieces = [0,1,2].map(() => ({shape:SHAPES[rnd(SHAPES.length)], color:COLORS[rnd(COLORS.length)]}));
+    if (pieces.some(p => canFitAnywhere(p.shape))) return;
+  }
+}
+
+function layout(){
+  const availH = innerHeight - 56 - 50 - 50 - 140 - 40;
+  const maxW = Math.min(innerWidth - 24, 520) - 16;
+  cs = Math.floor(Math.max(24, Math.min(maxW, availH - 16)) / N);
+  tcs = Math.min(Math.floor(cs*0.5), 24);
+  document.documentElement.style.setProperty('--cs', cs+'px');
+  trayEl.style.height = (5*tcs + 10) + 'px';
+}
+addEventListener('resize', () => { layout(); renderBoard(); renderTray(); });
+
+function renderBoard(){
+  gridEl.innerHTML = ''; cells = [];
+  for (let r=0;r<N;r++){ cells[r]=[];
+    for (let c=0;c<N;c++){
+      const d = document.createElement('div'); d.className='c';
+      if (grid[r][c]!==null){ d.classList.add('f'); d.style.setProperty('--bg', grid[r][c]); }
+      gridEl.appendChild(d); cells[r][c]=d;
+    }
+  }
+}
+
+function shapeEl(p, size){
+  const el = document.createElement('div'); el.className='shape';
+  el.style.setProperty('--cs', size+'px');
+  el.style.gridTemplateColumns = `repeat(${p.shape[0].length}, ${size}px)`;
+  p.shape.forEach(row => row.forEach(v => {
+    const d = document.createElement('div');
+    if (v){ d.className='c f'; d.style.setProperty('--bg', p.color); } else d.className='sp';
+    el.appendChild(d);
+  }));
+  return el;
+}
+
+function renderTray(){
+  trayEl.innerHTML = '';
+  pieces.forEach((p,i) => {
+    const slot = document.createElement('div'); slot.className='slot';
+    if (p){ slot.appendChild(shapeEl(p, tcs)); slot.addEventListener('pointerdown', e => startDrag(e,i,slot)); }
+    trayEl.appendChild(slot);
+  });
+}
+
+/* --- glisser-déposer --- */
+function startDrag(e, i, slot){
+  if (busy || drag) return;
+  e.preventDefault();
+  const p = pieces[i];
+  const ghost = shapeEl(p, cs); ghost.classList.add('ghost');
+  document.body.appendChild(ghost);
+  slot.classList.add('used');
+  drag = {i, p, ghost, slot, w:p.shape[0].length*cs, h:p.shape.length*cs, target:null};
+  moveDrag(e);
+  addEventListener('pointermove', moveDrag);
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+}
+function clearHint(){ hinted.forEach(d => { d.classList.remove('hint'); d.style.removeProperty('--bg'); }); hinted = []; }
+function moveDrag(e){
+  if (!drag) return;
+  const lift = e.pointerType === 'mouse' ? 0 : cs*1.8;
+  const left = e.clientX - drag.w/2, top = e.clientY - drag.h/2 - lift;
+  drag.ghost.style.transform = `translate(${left}px,${top}px)`;
+  const rect = gridEl.getBoundingClientRect();
+  const col = Math.round((left - rect.left)/cs), row = Math.round((top - rect.top)/cs);
+  clearHint();
+  const ok = fits(drag.p.shape, row, col);
+  drag.target = ok ? {row,col} : null;
+  if (ok) drag.p.shape.forEach((rw,i) => rw.forEach((v,j) => {
+    if (v){ const d = cells[row+i][col+j]; d.classList.add('hint'); d.style.setProperty('--bg', drag.p.color); hinted.push(d); }
+  }));
+}
+function endDrag(){
+  removeEventListener('pointermove', moveDrag);
+  removeEventListener('pointerup', endDrag);
+  removeEventListener('pointercancel', endDrag);
+  const d = drag; drag = null;
+  d.ghost.remove(); clearHint();
+  if (d.target) place(d.i, d.target.row, d.target.col);
+  else d.slot.classList.remove('used');
+}
+
+/* --- logique --- */
+function place(i, row, col){
+  const p = pieces[i]; let count = 0;
+  p.shape.forEach((rw,a) => rw.forEach((v,b) => { if (v){ grid[row+a][col+b] = p.color; count++; } }));
+  pieces[i] = null;
+  const rows = [], cols = [];
+  for (let r=0;r<N;r++) if (grid[r].every(v => v!==null)) rows.push(r);
+  for (let c=0;c<N;c++) if (grid.every(rw => rw[c]!==null)) cols.push(c);
+  const lines = rows.length + cols.length;
+  let gained = count;
+  if (lines){ streak++; gained += lines*lines*10 + (streak>1 ? streak*10 : 0); } else streak = 0;
+  score += gained; updateScore(); renderBoard(); renderTray();
+  floatText('+'+gained + (lines>1 ? '  Combo x'+lines : ''));
+  if (lines){
+    busy = true;
+    const kill = new Set();
+    rows.forEach(r => { for (let c=0;c<N;c++) kill.add(r*N+c); });
+    cols.forEach(c => { for (let r=0;r<N;r++) kill.add(r*N+c); });
+    kill.forEach(k => cells[Math.floor(k/N)][k%N].classList.add('pop'));
+    setTimeout(() => {
+      kill.forEach(k => { grid[Math.floor(k/N)][k%N] = null; });
+      renderBoard(); busy = false; afterMove();
+    }, 270);
+  } else afterMove();
+}
+function afterMove(){
+  if (pieces.every(p => p===null)){ deal(); renderTray(); }
+  if (!pieces.some(p => p && canFitAnywhere(p.shape))) gameOver();
+}
+function updateScore(){
+  $('#score').textContent = score;
+  $('#best').textContent = Math.max(best, score);
+}
+function floatText(t){
+  const f = document.createElement('div'); f.className='float'; f.textContent=t;
+  wrapEl.appendChild(f); setTimeout(() => f.remove(), 1000);
+}
+function gameOver(){
+  const isBest = score > best;
+  if (isBest){ best = score; try { localStorage.setItem('blocrush_best', best); } catch (e) {} }
+  $('#finalScore').textContent = score;
+  $('#newBest').style.display = isBest && score>0 ? 'block' : 'none';
+  updateScore();
+  setTimeout(() => $('#over').classList.add('show'), 350);
+}
+$('#again').addEventListener('click', newGame);
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ============ PUBLICITÉS ADSENSE ============ */
+function setupAds(){
+  let loaded = false;
+  document.querySelectorAll('.ad').forEach(el => {
+    const slot = el.dataset.slot === 'top' ? SLOT_TOP : SLOT_BOTTOM;
+    if (!ADSENSE_CLIENT || !slot) return;
+    if (!loaded){
+      const s = document.createElement('script');
+      s.async = true; s.crossOrigin = 'anonymous';
+      s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + ADSENSE_CLIENT;
+      document.head.appendChild(s); loaded = true;
+    }
+    el.innerHTML = '<ins class="adsbygoogle" style="display:inline-block;width:320px;height:50px"' +
+      ' data-ad-client="' + ADSENSE_CLIENT + '" data-ad-slot="' + slot + '"></ins>';
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  });
+}
+
+setupAds();
+newGame();
+</script>
+</body>
+</html>
