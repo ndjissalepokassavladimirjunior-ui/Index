@@ -63,6 +63,8 @@ button{font:inherit;font-weight:800;font-size:20px;border:0;border-radius:14px;p
   background:var(--accent);color:#2a1d00;cursor:pointer;box-shadow:0 4px 0 #b8901a}
 button:active{transform:translateY(3px);box-shadow:0 1px 0 #b8901a}
 :focus-visible{outline:3px solid #fff;outline-offset:2px}
+.app .ad[data-slot=top]{display:none}
+.app .ad[data-slot=bottom]{border:0;height:60px;color:transparent}
 @media (prefers-reduced-motion:reduce){.c.pop::before,.float{animation-duration:.01s}}
 </style>
 </head>
@@ -274,6 +276,7 @@ function floatText(t){
   wrapEl.appendChild(f); setTimeout(() => f.remove(), 1000);
 }
 function gameOver(){
+  gamesPlayed++;
   const isBest = score > best;
   if (isBest){ best = score; try { localStorage.setItem('blocrush_best', best); } catch (e) {} }
   $('#finalScore').textContent = score;
@@ -281,7 +284,7 @@ function gameOver(){
   updateScore();
   setTimeout(() => $('#over').classList.add('show'), 350);
 }
-$('#again').addEventListener('click', newGame);
+$('#again').addEventListener('click', () => { newGame(); maybeInterstitial(); });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 /* ============ PUBLICITÉS ADSENSE ============ */
@@ -302,7 +305,30 @@ function setupAds(){
   });
 }
 
-setupAds();
+/* ============ PUBLICITÉS ADMOB (appli Android) ============ */
+const isApp = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const ADMOB_BANNER = 'ca-app-pub-5644399325849364/8381063520';
+const ADMOB_INTERSTITIAL = 'ca-app-pub-5644399325849364/3882260365';
+const ADMOB_TESTING = true;   // true = pubs de test. Mettre false pour la version finale publiée.
+let gamesPlayed = 0;
+
+async function setupAppAds(){
+  document.body.classList.add('app');
+  try {
+    const { AdMob } = Capacitor.Plugins;
+    await AdMob.initialize();
+    await AdMob.showBanner({ adId: ADMOB_BANNER, adSize: 'ADAPTIVE_BANNER', position: 'BOTTOM_CENTER', margin: 0, isTesting: ADMOB_TESTING });
+    await AdMob.prepareInterstitial({ adId: ADMOB_INTERSTITIAL, isTesting: ADMOB_TESTING });
+  } catch (e) { console.warn('AdMob', e); }
+}
+async function maybeInterstitial(){
+  if (!isApp || gamesPlayed % 2 !== 0) return;   // une pub toutes les 2 parties
+  const { AdMob } = Capacitor.Plugins;
+  try { await AdMob.showInterstitial(); } catch (e) { console.warn('Interstitielle', e); }
+  try { await AdMob.prepareInterstitial({ adId: ADMOB_INTERSTITIAL, isTesting: ADMOB_TESTING }); } catch (e) {}
+}
+
+if (isApp) setupAppAds(); else setupAds();
 newGame();
 </script>
 </body>
