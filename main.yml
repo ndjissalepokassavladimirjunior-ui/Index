@@ -1,0 +1,57 @@
+name: Construire l'appli Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installer Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Préparer le projet Capacitor
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+          npm init -y
+          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/app@7 @capacitor/haptics@7 @capacitor-community/admob@7
+          npx cap init "Bloc Rush" com.dimir.blocrush --web-dir www
+          npx cap add android
+          npx cap sync android
+
+      - name: Ajouter l'ID AdMob de l'appli
+        run: |
+          python3 - <<'PY'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p, encoding='utf-8').read()
+          meta = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-5644399325849364~1819524602"/>\n    </application>'
+          assert '</application>' in s
+          s = s.replace('</application>', meta, 1)
+          open(p, 'w', encoding='utf-8').write(s)
+          PY
+
+      - name: Construire l'APK de test
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Envoyer l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloc-rush-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
